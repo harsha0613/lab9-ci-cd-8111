@@ -1,0 +1,44 @@
+name: app-ci-cd
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout your repo
+      - uses: actions/checkout@v4
+
+      # Step 2: Setup Python
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      # Step 4: Run tests
+      - name: Run tests
+        run: pytest -q
+
+      # Step 5: Build Docker image (just validates Dockerfile)
+      - name: Build Docker image
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          docker build -t app:${SHA}-8111 .
+
+      # Step 6: Hello artifact (warm-up)
+      - name: Hello artifact
+        run: echo "Hello from Harsha’s pipeline run $GITHUB_RUN_ID" > hello-8111.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hello-8111
+          path: hello-8111.txt

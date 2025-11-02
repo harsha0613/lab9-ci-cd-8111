@@ -6,6 +6,9 @@ on:
     branches: [ "main" ]
 
 jobs:
+  # --------------------------------------------
+  # JOB 1: Build & Test (CI)
+  # --------------------------------------------
   build-test:
     runs-on: ubuntu-latest
 
@@ -38,7 +41,33 @@ jobs:
       - name: Hello artifact
         run: echo "Hello from Harsha’s pipeline run $GITHUB_RUN_ID" > hello-8111.txt
 
+      # Step 7: Upload artifact
       - uses: actions/upload-artifact@v4
         with:
           name: hello-8111
           path: hello-8111.txt
+
+  # --------------------------------------------
+  # JOB 2: Deploy to AWS (CD)
+  # --------------------------------------------
+  deploy:
+    needs: build-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-1
+      ECR_REPO: lab9-app-8111
+      ECS_CLUSTER: lab9-cluster
+      ECS_SERVICE: lab9-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::480664947885:role/GitHubActions-ECSDeploy-8111
+          aws-region: ${{ env.AWS_REGION }}

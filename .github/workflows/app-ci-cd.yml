@@ -62,12 +62,65 @@ jobs:
       ECR_REPO: lab9-app-8111
       ECS_CLUSTER: lab9-cluster
       ECS_SERVICE: lab9-service
-
     steps:
       - uses: actions/checkout@v4
 
+      # Step 1: Configure AWS credentials via OIDC
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::480664947885:role/GitHubActions-ECSDeploy-8111
           aws-region: ${{ env.AWS_REGION }}
+
+      # Step 2: Login to Amazon ECR
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Step 3: Build and push Docker image to ECR
+      - name: Build and Push Image
+        run: |
+          set -e
+          SHA=$(git rev-parse --short HEAD)
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          IMAGE="${REGISTRY}/${{ env.ECR_REPO }}:${SHA}-8111"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      # Step 4: Create new ECS task definition JSON
+      - name: Render new task definition
+        run: |
+          cat <<EOF > taskdef.json
+          {
+            "family": "lab9-taskdef",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "256",
+            "memory": "512",
+            "executionRoleArn": "arn:aws:iam::480664947885:role/ecsTaskExecutionRole",
+            "containerDefinitions": [
+              {
+                "name": "lab9-container",
+                "image": "${IMAGE}",
+                "essential": true,
+                "portMappings": [
+                  {
+                    "containerPort": 8080,
+                    "protocol": "tcp"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+
+      # Step 5: Deploy new image to ECS
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: taskdef.json
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true

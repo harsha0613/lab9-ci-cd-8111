@@ -69,7 +69,7 @@ jobs:
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::480664947885:role/GitHubActions-ECSDeploy-8111
+          role-to-assume: arn:aws:iam::480664947885:role/GitHubActions-ECSDeploy-1234
           aws-region: ${{ env.AWS_REGION }}
 
       # Step 2: Login to Amazon ECR
